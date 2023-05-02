@@ -1,0 +1,347 @@
+# The Whole Code
+Here's the code for cut and paste into your Crystal Reports projects. I'll put this code as a downloadable .zip file on Github and My Patreon Account. For those who subscribe to my Patreon, I'll also have a few downloadable templates if you want to skip all the cutting and pasting, which will be posted after part 3 ships.  
+
+**Note: These are in the Basic Syntax for Crystal reports *not* Crystal Syntax**
+
+## FNC1
+```
+REM ================================ 
+REM Steven Lipton, Scientific Device Laboratory 4/23/23
+REM Convenience Function with Constant for FNC1 for use in 
+REM Gs1-128 databars. See Part 3 of this series 
+REM for applications.  
+REM ===============================
+
+Function FNC1() as String
+   FNC1 = Chr(202)
+End Function
+```   
+## isDigit
+
+```
+REM ================================ 
+REM Steven Lipton, Scientific Device Laboratory 3/22/23
+Rem Function to check if a string is made of characters 0-9 and returns a Boolean value. 
+REM ===============================
+
+Function isDigit (str AS String) As Boolean
+isDigit = True
+dim charIndex
+for charIndex = 1 to (Length(str))
+   dim char as String
+   char = Mid(str,charindex,1) 
+   isDigit = isDigit AND ASCW(char) >= 48 AND ASCW(char) <= 57
+Next charindex
+
+END Function
+```
+   
+## appendNum
+
+```
+REM ======================
+REM Steven Lipton, Scientific Device Laboratory, 3/23/23 
+REM Function to append to number array x element y
+REM To handle no empty arrays, must start with a non-valid number of 255 in element 1
+REM ======================
+Function appendNum(x() AS Number,y AS Number)
+if x(1) = 255 THEN                          'replace non-valid character since we cant start with an empty array
+    x = y
+Else
+    REDIM PRESERVE x(Count(x)+1)            'Increase size of array, preserving contents
+    x(Count(x)) = y                         'Add to new element the value in y
+End IF
+appendNum = x
+END Function
+```
+## appendStr
+
+```
+REM ======================
+REM Steven Lipton, Scientific Device Laboratory, 3/23/23 
+REM Function to append to number array x element y
+REM To handle no empty arrays, must start with a non-valid Chr(255) in element 1
+REM ======================
+Function appendStr(x() AS String,y AS String)
+    if x(1) = Chr(255) then     ' Cannot have an empty array , i.e. Count of 0   
+       x(1) = y                 ' Using chr(255) as placemarker. If there in first position, replace instead of append.  
+    Else 
+       REDIM PRESERVE x(Count(x)+1)                
+       x(Count(x)) = y
+    End IF
+    appendStr = x
+END Function 
+```
+
+## encodeB
+
+```
+REM ======================
+REM Steven Lipton, Scientific Device Laboratory, 3/22/23 
+REM Function to Code a character to GS1-128 Code B, return the GS1 code number. 
+REM ======================
+Function encodeB(str AS string) as Number
+  if ASCW(str) >= 32 AND ASCW(str) < 255 Then 
+     encodeB = ASCW(str) - 32
+  Else 
+     encodeB = 0
+  End If  
+End Function
+
+```
+
+## encodeC
+
+```
+REM =================================
+REM Steven Lipton, Scientific Device Laboratory, 3/22/23
+REM Function to encode a string to a Gs1 Code C value. 
+REM =================================
+Function encodeC(str as String) as Number
+   encodeC = Val(str)
+End Function
+
+```
+
+## encodeGS1_128
+```
+REM ======================================
+REM encodeGS1_128
+REM Steven Lipton, Scientific Device Laboratory 3/28/23
+REM Function to encode a string into a Code 128 or a GS1-128 Barcode String
+REM use the Libre Barcode 128 font to display properly. 
+REM Find it at Google fonts at: https://fonts.google.com/specimen/Libre+Barcode+128
+REM 
+REM ------Parameters:
+REM str as String     --> String to convert
+REM isGs1 as Boolean  --> Boolean value to include the FNC1 code for GS1. 
+REM                       This will cause the first digits to be the 
+REM                       Application Identifier if numbers are the first 
+REM                       Two digits. 
+REM 
+REM =====================================
+
+Function encodeGS1_128 (str As String, isGs1 AS Boolean)
+
+REM ---Initialize the return value
+encodeGS1_128 = ""
+
+REM ----------------------------
+REM Basic Declarations 
+
+
+REM Array used in the passes
+REM--------------------------
+Dim cluster() AS String    'clusters data in to 2 charcters(Code B) 
+cluster = Array(chr(255))  'and 1 character (Code C) Strings
+
+Dim gs1() AS Number        'Cluster converted into 
+gs1 = Array(255)           'GS1 codes
+
+REM useful Variables
+REM ------------------------
+DIM previous AS String     'Used to compare values in the array
+DIM current AS String
+DIM char As String         'The current character 
+DIM isCodeB AS Boolean     'Flag for code B or C,  B = true
+isCodeB = False            'Initialize to C
+
+DIM index AS Number        'Index for loops
+
+REM -------------------------------
+REM Phase 1: Parse into Code B and Code C clusters
+FOR index = 1 TO Length(str)
+    current = Mid(str,index,1)
+    IF Length(previous)=0 THEN 
+       IF isDigit(current) THEN
+          REM Move digit to previous
+          previous = current
+      ELSE
+          REM Append to cluster
+          cluster = AppendStr(cluster,current)
+      End If    
+ELSE 'previous has a value
+      If isDigit(current) Then
+          rem do 3 combine values append to cluster
+          cluster = AppendStr(cluster,previous + current)
+     Else
+        rem do 4 - append both values to cluster
+        cluster = AppendStr(cluster,previous)
+        cluster = AppendStr(cluster,current)
+     End If
+            previous = ""
+End If 
+next index
+
+REM Add orphan previous. 
+REM If we still have a value in previous after loop, append the value. 
+REM ----------------------------------------------------------------------------------
+If Length(previous) <> 0 Then cluster = AppendStr(cluster,previous)
+
+ 
+
+
+REM ==============================================
+REM Part 2: Parse into Code B and Code C GS1 codes
+REM ==============================================    
+
+REM -------------------------
+REM Important Constants 
+REM GS1 code start/change/stop
+REM -------------------------
+
+Dim CODEC
+CODEC = 99
+Dim CODEB
+CODEB = 100
+Dim FNC1
+FNC1 = 102
+Dim STARTB
+STARTB = 104
+Dim StartC
+STARTC = 105
+Dim STOP
+STOP = 106 
+
+
+REM Part 2.1: Add starting digit and FNC1
+REM -------------------------------------
+
+isCodeB = (Length(cluster(1)) = 1)
+If isCodeB Then
+    gs1 = AppendNum(gs1,STARTB)
+Else
+    gs1 = AppendNum(gs1,STARTC)
+End If
+
+REM if GS1 add the FNC1 character
+if isGS1 THEN gs1 = AppendNum(gs1,FNC1)
+
+REM Part 2.2 Parse the clusters to Gs1 codes B and C
+REM ------------------------------------------------
+
+previous = "" 'reset previous
+For index = 1 to Count(cluster)
+current = cluster(index)
+If isCodeB Then
+    Select Case  Length(previous)
+    Case 1  'B character in previous
+        gs1 = AppendNum(gs1,encodeB(previous))
+    If Length(current) = 1 Then 'B in current
+        gs1 = AppendNum(gs1,encodeB(current))
+        previous = ""
+    Else 'C in current
+        previous = current
+    End If            
+    Case 2 'C in previous
+    If Length(current) = 1 Then  'B in current
+        gs1 = AppendNum(gs1,encodeB(LEFT(previous,1)))
+        gs1 = AppendNum(GS1,encodeB(RIGHT(Previous,1)))
+        gs1 = AppendNum(gs1,encodeB(current))
+    Else 'C in current
+        isCodeB = false
+        gs1 = AppendNum(gs1,CODEC)
+        gs1 = AppendNum(gs1,encodeC(previous))
+        gs1 = AppendNum(gs1,encodeC(current))
+    End If
+            previous = ""
+    Case Else
+          previous = current      
+    End Select          
+Else 'code C
+    Select Case Length(previous)
+    Case 1 'B in previous
+        isCodeB = true
+        gs1 = AppendNum(gs1,codeB)
+        gs1 = AppendNum(gs1,encodeB(previous))
+        If Length(current) = 1 Then  'B in current
+                    gs1 = AppendNum(gs1,encodeB(current))
+                    previous = ""
+    Else  'C in Current
+                    previous = current
+    End If
+    Case 2  'C in previous
+                gs1 = AppendNum(gs1,encodeC(previous))
+        If Length(current) = 1 Then 'B in current
+                    isCodeB = true
+                    gs1 = AppendNum(gs1,codeB)
+                    gs1 = AppendNum(gs1,encodeB(current))
+        Else 'C in current
+                    gs1 = AppendNum(gs1,encodeC(current)) 
+        End If
+                previous = ""
+    Case Else 'blank previous
+        If Length(current) = 1 Then 'B in current
+                    isCodeB = true
+                    gs1 = AppendNum(gs1,codeB)
+                    gs1 = AppendNum(gs1,encodeB(current))    
+        Else  'C in current
+                    previous = current
+        End If
+    End Select
+End If 'Code C
+Next index
+
+REM Part 2.3 Parse any orphan charcters in previous
+REM -----------------------------------------------
+If Length(previous) <> 0 THEN 
+    If Length(previous) = 1 Then 'code b in previous
+        If Not(isCodeB) Then  'if code c change  to code B
+            gs1 = AppendNum(gs1,CODEB)
+        End If 
+    gs1 = AppendNum(gs1,encodeB(previous)) 'add previous
+    Else 'code c in previous
+        If Not(isCodeB) Then 'if code c, add it
+            gs1 = AppendNum(gs1,encodeC(previous))
+        Else 'if code b add two digits as code b. 
+            gs1 = AppendNum(gs1,encodeB(Left(previous,1)))
+            gs1 = AppendNum(gs1,encodeB(Right(previous,1)))
+        End If
+    End If
+End If
+REM ========================================
+REM Part 3: Find  then add the Checksum and stop
+REM ========================================
+    Dim checksum as Number 
+    checksum = 0
+
+    Dim weight as Number
+    for index =  1 to Count(gs1)
+        weight = index - 1
+        If weight = 0 Then weight = 1
+        checksum = checksum + (gs1(index) * weight)
+  
+    Next Index
+   
+    checksum = checksum Mod 103
+    gs1 = AppendNum(gs1,checksum)
+    gs1 = AppendNum(gs1,STOP)
+
+
+
+REM =====================================
+REM Part 4: Assemble and code to a string
+REM =====================================
+Dim charCode as Number
+Dim barcode as String
+for index = 1 to Count(gs1)
+    charCode = gs1(index)
+    if charCode > 95 Then 
+        charCode = charcode + 100
+    else 
+       if charcode = 0 Then 
+            charcode = 194
+       else
+            charcode = charcode + 32
+       End IF
+    End if  
+
+    barcode = barcode + Chr(charcode)
+Next index 
+ 
+encodeGS1_128 = barcode
+
+End Function
+
+```
+
