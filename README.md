@@ -1,6 +1,9 @@
 # GS1_128_Encoder
 How to use the GS1 128 encoder for crystal reports. 
 
+*This is an open source project meeting the specifications I have for a code 128 barcode font encoder. Use at your own discresion and test for your system accordingly.* 
+
+
 # BizOneness: Use Code 128 barcodes in Crystal Reports.  
 
 In the [last newsletter](https://www.linkedin.com/pulse/guide-barcodes-sap-part-1-codes-b1-crystal-reports-steven-lipton), we discussed the basics of barcodes, the common types of EAN/UPC, Code 39, and Code 128. We saw how to use Code 39 in SAP and Crystal reports. I want to show you how to use Code 128 and GS1-128 barcodes to print a shipping label in Crystal Reports. 
